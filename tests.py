@@ -1,20 +1,69 @@
+import typing
 import unittest
 import requests
+import pathlib
+import warnings
+
 from server import HOST, PORT
 
 
 class TestServer(unittest.TestCase):
-    def setUp(self) -> None:
-        self.test_file_hash = r"0\x19\x0c\x85\xd5\xf9\x03qm\x94\xb2N\x8cH\xdbO3\x10\xbc\xb6\x84\xfdG\x14\x19\xf9\xa5\x07\xafl\xf6\x9b"
+    test_file_hash: typing.List[str] = None
+    test_data_path = pathlib.Path.cwd() / "test_data"
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.test_upload()
+
+    @classmethod
+    def test_upload(cls) -> None:
+        """
+        тест загрузки файлов на сервер
+        :return:
+        """
+        cls.file_hashes = []
+        for path in TestServer.test_data_path.iterdir():
+            with open(str(path), "rb") as file_stream:
+                traceback = requests.post(f"http://{HOST}:{PORT}/upload",
+                            files={"file": file_stream})
+
+                if traceback.status_code != 200:
+                    warnings.warn(f"traceback.status_code is {traceback.status_code}. Should be 200")
+
+                cls.file_hashes.append(traceback.text.split("<br/>")[-1])
 
     def test_download(self):
-        traceback = requests.get(f"http://{HOST}:{PORT}/download", {"filename": self.test_file_hash})
-        self.assertEqual(traceback.status_code, 200, "200")
+        """
+        тест скачивания файла с сервера
+        :return:
+        """
+        for file_hash in TestServer.file_hashes:
+            traceback = requests.get(f"http://{HOST}:{PORT}/download", {"file": file_hash})
+            self.assertEqual(traceback.status_code, 200)
 
     def test_delete(self):
-        traceback = requests.get(f"http://{HOST}:{PORT}/delete", {"filename": self.test_file_hash})
-        self.assertEqual(traceback.status_code, 200, "200")
+        """
+        тест удаления файла с сервера
+        :return:
+        """
+        for file_hash in TestServer.file_hashes:
+            traceback = requests.get(f"http://{HOST}:{PORT}/delete", {"file": file_hash})
+            self.assertEqual(traceback.status_code, 200)
 
 
-if __name__ == "__main__":
-    unittest.main()
+class TestServerE2E(TestServer):
+    """
+    тест всего приложения
+    """
+    @classmethod
+    def setUpClass(cls) -> None:
+        return
+
+    def test_E2E(self) -> None:
+        """
+        тут происходит E2E тест
+        :return:
+        """
+        TestServer.test_upload()
+        self.test_download()
+        self.test_delete()
