@@ -1,10 +1,9 @@
 import hashlib
-import os
 import pathlib
-import argparse
 
 from aiohttp import web
 from multidict import MultiDict
+
 
 HOST: str = ""
 PORT: int = 0

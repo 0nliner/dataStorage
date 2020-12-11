@@ -221,28 +221,30 @@ class Daemon(object):
             self.log('Process (pid %d) is killed' % pid)
             return False
 
-    def run(self):
-        run_app(host="127.0.0.1", port=8082)
+    def run(self, host="127.0.0.1", port=8082):
+        run_app(host=host, port=port)
 
 
 parser = argparse.ArgumentParser()
 parser.add_argument("script_path")
 parser.add_argument("action", choices=["start", "stop"])
 
+parser.add_argument("--host", type=str, default="127.0.0.1")
+parser.add_argument("--port", type=int, default=8082)
+
 
 if __name__ == "__main__":
     logfile = str(BASE_DIR / 'log')
-    server_deamon = Daemon(str(BASE_DIR / 'deamon.pid'), stderr=logfile, stdout=logfile)
+    server_daemon = Daemon(str(BASE_DIR / 'daemon.pid'), stderr=logfile, stdout=logfile)
 
     parsed = parser.parse_args(sys.argv)
 
     if parsed.action == "start":
-        server_deamon.start()
-        server_deamon.run()
+        server_daemon.start(host=parsed.host, port=parsed.port)
 
     elif parsed.action == "stop":
-        server_deamon.stop()
+        server_daemon.stop()
 
     elif parsed.action == "restart":
-        server_deamon.restart()
+        server_daemon.restart()
 
