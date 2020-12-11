@@ -4,7 +4,8 @@ import requests
 import pathlib
 import warnings
 
-from server import HOST, PORT
+HOST = "127.0.0.1"
+PORT = 8082
 
 
 class TestServer(unittest.TestCase):

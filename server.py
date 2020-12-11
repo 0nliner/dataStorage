@@ -1,13 +1,15 @@
-from aiohttp import web
-import pathlib
 import hashlib
 import os
+import pathlib
+import argparse
+
+from aiohttp import web
 from multidict import MultiDict
 
+HOST: str = ""
+PORT: int = 0
 
 BASE_DIR = pathlib.Path.cwd()
-HOST = "127.0.0.1"
-PORT = 8082
 
 storage_path = BASE_DIR / "store"
 if not storage_path.exists():
@@ -119,19 +121,17 @@ async def delete(request):
     return web.Response(text="no such file in the storage", content_type="text/html", status=404)
 
 
-app = web.Application(client_max_size=1024**7)
-# для загрузки данных на сервер
-app.router.add_post("/upload", upload)
-app.router.add_get("/upload", upload)
+def run_app(host, port):
+    globals().update({"HOST": host, "PORT": port})
+    app = web.Application(client_max_size=1024 ** 7)
+    # для загрузки данных на сервер
+    app.router.add_post("/upload", upload)
+    app.router.add_get("/upload", upload)
 
-# для скачивания с сервера
-# по тз, как я понял, делать ссылку на статические файлы нельзя, так что вот
-app.router.add_get("/download", download)
+    # для скачивания с сервера
+    # по тз, как я понял, делать ссылку на статические файлы нельзя, так что вот
+    app.router.add_get("/download", download)
 
-# для удаления файла с сервера
-app.router.add_get("/delete", delete)
-
-
-if __name__ == "__main__":
-    print(f"pid is {os.getpid()}")
+    # для удаления файла с сервера
+    app.router.add_get("/delete", delete)
     web.run_app(app, host=HOST, port=PORT)
