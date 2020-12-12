@@ -192,6 +192,7 @@ def setup_cors(app: web.Application):
 async def view_storage(request):
     return {}
 
+
 def run_app(host, port):
     globals().update({"HOST": host, "PORT": port})
     app = web.Application(client_max_size=1024 ** 7)
