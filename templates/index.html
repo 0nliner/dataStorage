@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>structure</title>
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+
+    <style>
+        html, body {
+            padding: 0;
+            margin: 0;
+            font-family: sans-serif;
+            background-color: rgb(163, 245, 207);
+        }
+
+        #inforamation {
+            position: fixed;
+            display: flex;
+            place-items: center;
+            justify-content: center;
+            color: white;
+            background-color: rgba(0, 0, 0, 0.78);
+            left: 20px;
+            top: 20px;
+            max-height: 90vh;
+            max-width: 30vw;
+            flex-direction: column;
+            padding: 10px;
+            border-radius: 5px;
+            min-width: 30vw;
+        }
+
+        #buttons {
+            display: flex;
+            padding: 10px;
+        }
+
+        button {
+            background-color: white;
+            color: black;
+            border: none;
+            border-radius: 100px;
+            padding: 10px;
+        }
+
+        #file_content {
+            background-color: black;
+            color: white;
+            border-radius: 5px;
+            border: 2px solid white;
+            width: calc(100% - 10px);
+            min-height: 100px;
+            word-wrap: break-word;
+            padding: 5px;
+            overflow-y: scroll;
+        }
+
+        hr {
+            width: 100%;
+            border: none;
+            height: 1px;
+            background: white;
+        }
+
+        #object_name {
+            word-wrap: break-word;
+            max-width: calc(100%);
+        }
+
+    </style>
+</head>
+    <body>
+        <div id="inforamation">
+            <h1 id="object_name">
+            </h1>
+
+            <hr>
+            <br/>
+            <h3>content</h3>
+            <div id="file_content"></div>
+            <br>
+            <h2>тип объекта</h2>
+            <div id="object_type"></div>
+            <div id="buttons"></div>
+
+        </div>
+
+        <script>
+            // последний выбранный элемент
+            let last_selected_object = null;
+
+            // при true нам показывается справочная информация по объекту
+            let inspection_mode = true;
+
+            // при нажатии на i показывается/скрывается справочная информация
+            window.addEventListener("keydown", (event) => {
+                if (event.key === "i") {
+                    inspection_mode = !inspection_mode;
+                    update_info();
+                }
+            })
+
+            update_info = () => {
+                let information_block = document.getElementById("inforamation");
+                let object_name = "";
+                if (last_selected_object.data.name <= 30) {
+                    object_name = last_selected_object.data.name ;
+                }
+                else {
+                    object_name = last_selected_object.data.name.slice(0, 29) + "...";
+                }
+
+                if (last_selected_object.data && last_selected_object.data.type == "file") {
+                    document.getElementById("file_content").innerText = last_selected_object.data.content;
+                }
+
+                else if (last_selected_object.data && last_selected_object.data.type == "folder" && last_selected_object.children) {
+                    let content_str = "";
+                    for (let obj of last_selected_object.children) {
+                        content_str += `${obj.data.type} |\t${obj.data.name} <br/><br/>`
+                    }
+                    document.getElementById("file_content").innerHTML = content_str;
+                }
+
+                document.getElementById("object_name").innerText = object_name;
+                document.getElementById("object_type").innerText = last_selected_object.data.type;
+                if (inspection_mode) {
+                    information_block.style.display = "flex";
+                    return;
+                }
+                information_block.style.display = "none";
+            }
+
+            delete_object = () => {
+
+            }
+
+            async function get_data() {
+                let traceback = await fetch("http://127.0.0.1:8080/get_structure_info");
+                return await traceback.json();
+            }
+
+            get_data()
+                .then((data, resolve) => {
+                    pack = data => d3.pack(data)
+                        .size([width, height])
+                        .padding(3)
+                        (d3.hierarchy(data)
+                            .sum(d => d.value)
+                            .sort((a, b) => b.value - a.value));
+
+                    let width = 932;
+                    let height = 932;
+
+                    let format = d3.format(",d");
+                    let color = d3.scaleLinear()
+                        .domain([0, 5])
+                        .range(["hsl(152,80%,80%)", "hsl(228,30%,40%)"])
+                        .interpolate(d3.interpolateHcl);
+
+                    const root = pack(data);
+                    let focus = root;
+                    let view;
+
+                    const svg = d3.select("body")
+                        .append("svg")
+                        .attr("viewBox", `-${width / 2} -${height / 2} ${width} ${height}`)
+                        .style("display", "block")
+                        .style("margin", "0 -14px")
+                        .style("background", color(0))
+                        .style("cursor", "pointer")
+                        .on("click", (event) => zoom(event, root));
+
+                    // const node = svg.append("g")
+                    //     .selectAll("circle")
+                    //     .data(root.descendants().slice(1))
+                    //     .join("circle")
+                    //     //here
+                    //     .attr("fill", d => color(d.depth))
+                    //     .attr("pointer-events", d => !d.children ? "none" : null)
+                    //     .on("mouseover", function() { d3.select(this).attr("stroke", "#fff"); })
+                    //     .on("mouseout", function() { d3.select(this).attr("stroke", null); })
+                    //     .on("click", (event, d) => {
+                    //             if (d.children.length === 1) {
+                    //                 last_selected_object = d.children[0];
+                    //             }
+                    //             else {
+                    //                 last_selected_object = d;
+                    //             }
+                    //             update_info();
+                    //             return focus !== d && (zoom(event, last_selected_object), event.stopPropagation());
+                    //         }
+                    //     );
+
+                    const node = svg.append("g")
+                        .selectAll("circle")
+                        .data(root.descendants().slice(1))
+                        .join("circle")
+                        //here
+                        .attr("fill", d => color(d.depth))
+                        .attr("pointer-events", d => null)
+                        .on("mouseover", function() { d3.select(this).attr("stroke", "#fff"); })
+                        .on("mouseout", function() { d3.select(this).attr("stroke", null); })
+                        .on("click", (event, d) => {
+                                last_selected_object = d;
+                                update_info();
+                                return focus !== d && (zoom(event, last_selected_object), event.stopPropagation());
+                            }
+                        );
+
+                    const label = svg.append("g")
+                        .style("font", "10px sans-serif")
+                        .attr("pointer-events", "none")
+                        .attr("text-anchor", "middle")
+                        .selectAll("text")
+                        .data(root.descendants())
+                        .join("text")
+                        .style("fill-opacity", d => d.parent === root ? 1 : 0)
+                        .style("fill", "white")
+                        .style("display", d => d.parent === root ? "inline" : "none")
+                        .text(d => d.data.name);
+
+                    zoomTo([root.x, root.y, root.r * 2]);
+
+                    function zoomTo(v) {
+                        const k = width / v[2];
+
+                        view = v;
+                        // console.log();
+                        label.attr("transform", d => {
+                            // console.log(d);
+                            return `translate(${(d.x - v[0]) * k},${(d.y - v[1]) * k})`
+                        });
+
+                        label.attr("transform", d => `translate(${(d.x - v[0]) * k},${(d.y - v[1]) * k})`);
+                        node.attr("transform", d => `translate(${(d.x - v[0]) * k},${(d.y - v[1]) * k})`);
+                        node.attr("r", d => d.r * k);
+                    }
+
+                    function zoom(event, d) {
+                        const focus0 = focus;
+
+                        focus = d;
+
+                        const transition = svg.transition()
+                            .duration(event.altKey ? 7500 : 750)
+                            .tween("zoom", d => {
+                                const i = d3.interpolateZoom(view, [focus.x, focus.y, focus.r * 2]);
+                                return t => zoomTo(i(t));
+                            });
+
+                        label
+                            .filter(function(d) { return d.parent === focus || this.style.display === "inline"; })
+                            .transition(transition)
+                            .style("fill-opacity", d => d.parent === focus ? 1 : 0)
+                            .on("start", function(d) { if (d.parent === focus) this.style.display = "inline"; })
+                            .on("end", function(d) { if (d.parent !== focus) this.style.display = "none"; });
+                    }
+                }).then(e=>setTimeout(()=>alert('нажмите "i", чтобы включить/выключить справочную информащию'), 1000));
+        </script>
+
+    </body>
+</html>

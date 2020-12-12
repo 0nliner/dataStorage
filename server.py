@@ -1,7 +1,11 @@
 import hashlib
 import pathlib
+import random
 
 from aiohttp import web
+import aiohttp_cors
+import aiohttp_jinja2
+import jinja2
 from multidict import MultiDict
 
 
@@ -14,6 +18,7 @@ storage_path = BASE_DIR / "store"
 if not storage_path.exists():
     storage_path.mkdir()
 
+templates_path = BASE_DIR / "templates"
 
 async def upload(request):
     if request.method == "POST":
@@ -120,6 +125,73 @@ async def delete(request):
     return web.Response(text="no such file in the storage", content_type="text/html", status=404)
 
 
+def serialize_file(file_path: pathlib.Path) -> dict:
+    """
+    сериализует файл
+    :param file_path: file_path. Путь до сериализуемого файла
+    :return:
+    """
+    file_serialized = {
+        "name": file_path.name,
+        "content": str(file_path.read_bytes())[2:-1],
+        "type": "file",
+        "value": random.randint(100, 4000)
+    }
+    return file_serialized
+
+
+def serialize_folder(folder_path: pathlib.Path):
+    """
+    сериализует папку и всё лежащее в ней
+    :param folder_path:
+    :return:
+    """
+    folder_serialized = {
+        "name": folder_path.name,
+        "children" : [],
+        "type": "folder"
+    }
+
+    if not folder_path.is_dir():
+        data = []
+        data.append(serialize_file(folder_path))
+        return data
+
+    for object_path in folder_path.iterdir():
+        data = serialize_folder(object_path)
+        folder_serialized.update({"children": folder_serialized["children"] + data})
+
+    return [folder_serialized]
+
+
+async def get_structure_info(request):
+    """
+    возвращает json представление папки store
+    :return: web.json_response()
+    """
+    serialized_storage = serialize_folder(storage_path)[0]
+    return web.json_response(serialized_storage)
+
+
+def setup_cors(app: web.Application):
+    cors = aiohttp_cors.setup(app)
+
+    resource = cors.add(app.router.add_resource("/get_structure_info"))
+    route = cors.add(
+        resource.add_route("GET", get_structure_info), {
+            "*": aiohttp_cors.ResourceOptions(
+                allow_credentials=True,
+                expose_headers=("X-Custom-Server-Header",),
+                allow_headers=("X-Requested-With", "Content-Type"),
+                max_age=3600,
+            )
+        })
+
+
+@aiohttp_jinja2.template("index.html")
+async def view_storage(request):
+    return {}
+
 def run_app(host, port):
     globals().update({"HOST": host, "PORT": port})
     app = web.Application(client_max_size=1024 ** 7)
@@ -133,4 +205,15 @@ def run_app(host, port):
 
     # для удаления файла с сервера
     app.router.add_get("/delete", delete)
+
+    # решил добавить визуализацию в код
+    aiohttp_jinja2.setup(app, loader=jinja2.FileSystemLoader(str(templates_path)))
+    app.router.add_get("/", view_storage)
+    setup_cors(app)
+
     web.run_app(app, host=HOST, port=PORT)
+
+
+if __name__ == "__main__":
+    run_app("127.0.0.1", 8080)
+

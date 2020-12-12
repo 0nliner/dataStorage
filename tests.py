@@ -5,12 +5,12 @@ import pathlib
 import warnings
 
 HOST = "127.0.0.1"
-PORT = 8082
+PORT = 8080
 
 
 class TestServer(unittest.TestCase):
     test_file_hash: typing.List[str] = None
-    test_data_path = pathlib.Path.cwd() / "test_data"
+    test_data_path = pathlib.Path.cwd() / "store" / "test_data"
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -24,6 +24,8 @@ class TestServer(unittest.TestCase):
         """
         cls.file_hashes = []
         for path in TestServer.test_data_path.iterdir():
+            if path.is_dir():
+                continue
             with open(str(path), "rb") as file_stream:
                 traceback = requests.post(f"http://{HOST}:{PORT}/upload",
                             files={"file": file_stream})
