@@ -9,7 +9,7 @@
 
 ![1.png](./store/test_data/1.png)
 ![2.png](./store/test_data/2.png)
-![3.png](./store/test_data/2.png)
+![3.png](./store/test_data/3.png)
 
 ## запуск демона
 1) активируем виртуальное окружение 
